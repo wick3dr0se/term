@@ -45,6 +45,10 @@ proc altBuffer*() = stdout.write("\e[?1049h")
 
 proc mainBuffer*() = stdout.write("\e[?1049l")
 
+proc saveScreen*() = stdout.write("\e[?47h")
+
+proc restoreScreen*() = stdout.write("\e[?47l")
+
 proc lineBreak*() = stdout.write("\e[?25l")
 
 proc lineWrap*() = stdout.write("\e[?25h")
