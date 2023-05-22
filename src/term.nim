@@ -2,21 +2,31 @@ import termios
 
 var term: Termios
 
-proc rawMode*(time: cint = TCSAFLUSH) =
-  discard tcGetAttr(0, addr term)
-  term.c_iflag = term.c_iflag and not Cflag(BRKINT or ICRNL or INPCK or ISTRIP or IXON)
-  term.c_oflag = term.c_oflag and not Cflag(OPOST)
-  term.c_cflag = (term.c_cflag and not Cflag(CSIZE or PARENB)) or CS8
-  term.c_lflag = term.c_lflag and not Cflag(ECHO or ICANON or IEXTEN or ISIG)
-  term.c_cc[VMIN] = '1'
-  term.c_cc[VTIME] = '0'
-  discard tcSetAttr(0, time, addr term)
+type Mode* = enum
+  raw
+  canonical
+  cooked
 
-proc cookedMode*(time: cint = TCSAFLUSH) =
+proc setMode*(mode: Mode, time: cint = TCSAFLUSH) =
   discard tcGetAttr(0, addr term)
-  term.c_lflag = term.c_lflag or Cflag(ECHO or ICANON or IEXTEN or ISIG)
+
+  case mode
+  of raw:
+    term.c_iflag = term.c_iflag and not Cflag(BRKINT or ICRNL or INPCK or ISTRIP or IXON)
+    term.c_oflag = term.c_oflag and not Cflag(OPOST)
+    term.c_cflag = (term.c_cflag and not Cflag(CSIZE or PARENB)) or CS8
+    term.c_lflag = term.c_lflag and not Cflag(ECHO or ICANON or IEXTEN or ISIG)
+  of canonical:
+    term.c_lflag = term.c_lflag or Cflag(ECHO or ICANON or IEXTEN or ISIG)
+    term.c_iflag = term.c_iflag and not Cflag(BRKINT or ICRNL or INPCK or ISTRIP or IXON)
+    term.c_cc[VERASE] = 8.char
+    term.c_cc[VKILL] = 21.char
+  of cooked:
+    term.c_lflag = term.c_lflag or Cflag(ECHO or ICANON or IEXTEN or ISIG)
+
   term.c_cc[VMIN] = '1'
   term.c_cc[VTIME] = '0'
+
   discard tcSetAttr(0, time, addr term)
 
 proc echoOff*(time: cint = TCSAFLUSH) =
