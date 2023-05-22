@@ -32,3 +32,7 @@ proc echoOn*(time: cint = TCSAFLUSH) =
 proc altBuffer*() = stdout.write("\e[?1049h")
 
 proc mainBuffer*() = stdout.write("\e[?1049l")
+
+proc setTitle*(title: string) = stdout.write("\e]0;" & title & "\x07")
+
+proc sendBell*() = stdout.write("\a")
