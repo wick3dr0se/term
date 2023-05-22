@@ -39,10 +39,14 @@ proc echoOn*(time: cint = TCSAFLUSH) =
   term.c_lflag = term.c_lflag or Cflag(ECHO)
   discard tcSetAttr(0, time, addr term)
 
+proc setTitle*(title: string) = stdout.write("\e]0;" & title & "\x07")
+
 proc altBuffer*() = stdout.write("\e[?1049h")
 
 proc mainBuffer*() = stdout.write("\e[?1049l")
 
-proc setTitle*(title: string) = stdout.write("\e]0;" & title & "\x07")
+proc lineBreak*() = stdout.write("\e[?25l")
+
+proc lineWrap*() = stdout.write("\e[?25h")
 
 proc sendBell*() = stdout.write("\a")
