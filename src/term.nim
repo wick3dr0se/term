@@ -1,13 +1,17 @@
-import termios
+import termios, terminal, random
 
 var term: Termios
 
-type Mode* = enum
+type TermMode* = enum
   raw
   canonical
   cooked
 
-proc setMode*(mode: Mode, time: cint = TCSAFLUSH) =
+type ColorType* = enum
+  fg
+  bg
+
+proc setMode*(mode: TermMode, time: cint = TCSAFLUSH) =
   discard tcGetAttr(0, addr term)
 
   case mode
@@ -54,3 +58,18 @@ proc lineBreak*() = stdout.write("\e[?25l")
 proc lineWrap*() = stdout.write("\e[?25h")
 
 proc sendBell*() = stdout.write("\a")
+
+proc randColorSeq*(colorType: ColorType = fg): string =
+  var ctype = "3"
+  if colorType == bg: ctype = "4"
+ 
+  enableTrueColors()
+  randomize()
+  if isTrueColorSupported():
+    var (r, g, b) = (rand(256), rand(256), rand(256))
+
+    result = "\e[" & ctype & "8;2;" & $r & ";" & $g & ";" & $b & "m"
+  else:
+    result = "\e[" & ctype & $rand(7) & "m"
+
+  return result
