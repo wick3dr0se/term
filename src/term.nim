@@ -2,14 +2,14 @@ import termios, terminal, random
 
 var term: Termios
 
-type TermMode* = enum
-  raw
-  canonical
-  cooked
-
-type ColorType* = enum
-  fg
-  bg
+type
+  TermMode* = enum
+    raw
+    canonical
+    cooked
+  ColorType* = enum
+    fg
+    bg
 
 proc setMode*(mode: TermMode, time: cint = TCSAFLUSH) =
   discard tcGetAttr(0, addr term)
@@ -57,6 +57,10 @@ proc lineBreak*() = stdout.write("\e[?25l")
 
 proc lineWrap*() = stdout.write("\e[?25h")
 
+proc scrollUp*(rows: int = 1) = stdout.write("\e[", rows, "S")
+
+proc scrollDown*(rows: int = 1) = stdout.write("\e[", rows, "T")
+
 proc sendBell*() = stdout.write("\a")
 
 proc randColorSeq*(colorType: ColorType = fg): string =
@@ -73,3 +77,5 @@ proc randColorSeq*(colorType: ColorType = fg): string =
     result = "\e[" & ctype & $rand(7) & "m"
 
   return result
+
+proc echoRandColor*(text: string) = stdout.writeLine(randColorSeq(), text, "\e[m")
