@@ -4,6 +4,7 @@ var term: Termios
 
 type
   TermMode* = enum
+    noecho
     raw
     canonical
     cooked
@@ -15,6 +16,8 @@ proc setMode*(mode: TermMode, time: cint = TCSAFLUSH) =
   discard tcGetAttr(0, addr term)
 
   case mode
+  of noecho:
+    term.c_lflag = term.c_lflag and not Cflag(ECHO)
   of raw:
     term.c_iflag = term.c_iflag and not Cflag(BRKINT or ICRNL or INPCK or ISTRIP or IXON)
     term.c_oflag = term.c_oflag and not Cflag(OPOST)
@@ -31,16 +34,6 @@ proc setMode*(mode: TermMode, time: cint = TCSAFLUSH) =
   term.c_cc[VMIN] = '1'
   term.c_cc[VTIME] = '0'
 
-  discard tcSetAttr(0, time, addr term)
-
-proc echoOff*(time: cint = TCSAFLUSH) =
-  discard tcGetAttr(0, addr term)
-  term.c_lflag = term.c_lflag and not Cflag(ECHO)
-  discard tcSetAttr(0, time, addr term)
-
-proc echoOn*(time: cint = TCSAFLUSH) =
-  discard tcGetAttr(0, addr term)
-  term.c_lflag = term.c_lflag or Cflag(ECHO)
   discard tcSetAttr(0, time, addr term)
 
 proc setTitle*(title: string) = stdout.write("\e]0;" & title & "\x07")
