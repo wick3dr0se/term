@@ -1,7 +1,5 @@
 import termios, terminal, random
 
-var term: Termios
-
 type
   TermMode* = enum
     noecho
@@ -13,7 +11,9 @@ type
     bg
 
 proc setMode*(mode: TermMode, time: cint = TCSAFLUSH) =
+  var term: Termios
   discard tcGetAttr(0, addr term)
+  var ogTerm = term
 
   case mode
   of noecho:
@@ -34,7 +34,7 @@ proc setMode*(mode: TermMode, time: cint = TCSAFLUSH) =
   term.c_cc[VMIN] = '1'
   term.c_cc[VTIME] = '0'
 
-  discard tcSetAttr(0, time, addr term)
+  discard tcSetAttr(0, time, addr ogTerm)
 
 proc setTitle*(title: string) = stdout.write("\e]0;" & title & "\x07")
 
