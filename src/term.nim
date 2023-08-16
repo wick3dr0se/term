@@ -1,40 +1,43 @@
 import termios, terminal, random
 
-type
-  TermMode* = enum
-    noecho
-    raw
-    canonical
-    cooked
-  ColorType* = enum
-    fg
-    bg
+type ColorType* = enum
+  fg = 3
+  bg = 4
 
-proc setMode*(mode: TermMode, time: cint = TCSAFLUSH) =
-  var term: Termios
-  discard tcGetAttr(0, addr term)
-  var ogTerm = term
+var termAttrs, ogTermAttrs: Termios
 
-  case mode
-  of noecho:
-    term.c_lflag = term.c_lflag and not Cflag(ECHO)
-  of raw:
-    term.c_iflag = term.c_iflag and not Cflag(BRKINT or ICRNL or INPCK or ISTRIP or IXON)
-    term.c_oflag = term.c_oflag and not Cflag(OPOST)
-    term.c_cflag = (term.c_cflag and not Cflag(CSIZE or PARENB)) or CS8
-    term.c_lflag = term.c_lflag and not Cflag(ECHO or ICANON or IEXTEN or ISIG)
-  of canonical:
-    term.c_lflag = term.c_lflag or Cflag(ECHO or ICANON or IEXTEN or ISIG)
-    term.c_iflag = term.c_iflag and not Cflag(BRKINT or ICRNL or INPCK or ISTRIP or IXON)
-    term.c_cc[VERASE] = 8.char
-    term.c_cc[VKILL] = 21.char
-  of cooked:
-    term.c_lflag = term.c_lflag or Cflag(ECHO or ICANON or IEXTEN or ISIG)
+proc rawMode*(vmin: int = 1, vtime: int = 0, time: cint = TCSAFLUSH) =
+  discard tcGetAttr(0, addr termAttrs)
+  
+  termAttrs.c_lflag = termAttrs.c_lflag and not Cflag(ECHO or ICANON or IEXTEN or ISIG)
+  termAttrs.c_iflag = termAttrs.c_iflag and not Cflag(ICRNL or INPCK or ISTRIP)
+  termAttrs.c_oflag = termAttrs.c_oflag and not Cflag(OPOST)
 
-  term.c_cc[VMIN] = '1'
-  term.c_cc[VTIME] = '0'
+  termAttrs.c_cc[VMIN] = vmin.char
+  termAttrs.c_cc[VTIME] = vtime.char
 
-  discard tcSetAttr(0, time, addr ogTerm)
+  discard tcSetAttr(0, time, addr ogTermAttrs)
+
+proc cookedMode*() =
+  discard tcGetAttr(0, addr termAttrs)
+  
+  termAttrs.c_lflag = termAttrs.c_lflag or Cflag(ECHO or ICANON or IEXTEN or ISIG)
+  
+  discard tcSetAttr(0, TCSANOW, addr ogTermAttrs)
+
+proc echoOff*() =
+  discard tcGetAttr(0, addr termAttrs)
+
+  termAttrs.c_lflag = termAttrs.c_lflag and not Cflag(ECHO)
+
+  discard tcSetAttr(0, TCSANOW, addr ogTermAttrs)
+
+proc echoOn*() =
+  discard tcGetAttr(0, addr termAttrs)
+  
+  termAttrs.c_lflag = termAttrs.c_lflag or Cflag(ECHO)
+  
+  discard tcSetAttr(0, TCSANOW, addr ogTermAttrs)
 
 proc setTitle*(title: string) = stdout.write("\e]0;" & title & "\x07")
 
@@ -57,18 +60,15 @@ proc scrollDown*(rows: int = 1) = stdout.write("\e[", rows, "T")
 proc sendBell*() = stdout.write("\a")
 
 proc randColorSeq*(colorType: ColorType = fg): string =
-  var ctype = "3"
-  if colorType == bg: ctype = "4"
- 
-  enableTrueColors()
+  var ctype = $colorType
+
   randomize()
+  enableTrueColors()
   if isTrueColorSupported():
     var (r, g, b) = (rand(256), rand(256), rand(256))
 
     result = "\e[" & ctype & "8;2;" & $r & ";" & $g & ";" & $b & "m"
   else:
     result = "\e[" & ctype & $rand(7) & "m"
-
-  return result
 
 proc echoRandColor*(text: string) = stdout.writeLine(randColorSeq(), text, "\e[m")
