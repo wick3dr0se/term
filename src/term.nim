@@ -6,8 +6,10 @@ type ColorType* = enum
 
 var termAttrs, ogTermAttrs: Termios
 
-proc rawMode*(vmin: int = 1, vtime: int = 0, time: cint = TCSAFLUSH) =
+## TUI
+proc rawMode*(vmin: int = 2, vtime: int = 0, time: cint = TCSANOW) =
   discard tcGetAttr(0, addr termAttrs)
+  ogTermAttrs = termAttrs
   
   termAttrs.c_lflag = termAttrs.c_lflag and not Cflag(ECHO or ICANON or IEXTEN or ISIG)
   termAttrs.c_iflag = termAttrs.c_iflag and not Cflag(ICRNL or INPCK or ISTRIP)
@@ -16,28 +18,46 @@ proc rawMode*(vmin: int = 1, vtime: int = 0, time: cint = TCSAFLUSH) =
   termAttrs.c_cc[VMIN] = vmin.char
   termAttrs.c_cc[VTIME] = vtime.char
 
-  discard tcSetAttr(0, time, addr ogTermAttrs)
+  discard tcSetAttr(0, time, addr termAttrs)
 
-proc cookedMode*() =
-  discard tcGetAttr(0, addr termAttrs)
-  
-  termAttrs.c_lflag = termAttrs.c_lflag or Cflag(ECHO or ICANON or IEXTEN or ISIG)
-  
-  discard tcSetAttr(0, TCSANOW, addr ogTermAttrs)
+proc cookedMode*() = discard tcSetAttr(0, TCSANOW, addr ogTermAttrs)
 
 proc echoOff*() =
   discard tcGetAttr(0, addr termAttrs)
+  ogTermAttrs = termAttrs
 
   termAttrs.c_lflag = termAttrs.c_lflag and not Cflag(ECHO)
 
-  discard tcSetAttr(0, TCSANOW, addr ogTermAttrs)
+  discard tcSetAttr(0, TCSANOW, addr termAttrs)
 
 proc echoOn*() =
   discard tcGetAttr(0, addr termAttrs)
+  ogTermAttrs = termAttrs
   
   termAttrs.c_lflag = termAttrs.c_lflag or Cflag(ECHO)
   
-  discard tcSetAttr(0, TCSANOW, addr ogTermAttrs)
+  discard tcSetAttr(0, TCSANOW, addr termAttrs)
+
+proc readIn*(vmin: int = 1): string =
+  rawMode(vmin)
+  
+  var buf: string
+  
+  while vmin > buf.len:
+    let c = readChar(stdin)
+    if c != '\0':
+      buf.add(c)
+    else:
+      break
+
+  cookedMode()
+
+  return buf
+
+## ANSI
+proc enableMouse*() = stdout.write("\e[?1000h")
+
+proc disableMouse*() = stdout.write("\e[?1000l")
 
 proc setTitle*(title: string) = stdout.write("\e]0;" & title & "\x07")
 
