@@ -1,13 +1,57 @@
 import termios, terminal, random
 
-type ColorType* = enum
-  fg = 3
-  bg = 4
-
 var termAttrs, ogTermAttrs: Termios
 
+## ANSI
+proc enableMouse*() = stdout.write("\e[?1000h")
+
+proc disableMouse*() = stdout.write("\e[?1000l")
+
+proc setTitle*(title: string) = stdout.write("\e]0;" & title & "\x07")
+
+proc altBuffer*() = stdout.write("\e[?1049h")
+
+proc mainBuffer*() = stdout.write("\e[?1049l")
+
+proc saveCursor*() = stdout.write("\e7")
+
+proc restoreCursor*() = stdout.write("\e8")
+
+proc saveScreen*() = stdout.write("\e[?47h")
+
+proc restoreScreen*() = stdout.write("\e[?47l")
+
+proc lineBreak*() = stdout.write("\e[?25l")
+
+proc lineWrap*() = stdout.write("\e[?25h")
+
+proc scrollUp*(rows: int = 1) = stdout.write("\e[", rows, "S")
+
+proc scrollDown*(rows: int = 1) = stdout.write("\e[", rows, "T")
+
+proc sendBell*() = stdout.write("\a")
+
+proc randColorSeq*(cType = "fg"): string =
+  var color: int
+
+  if cType == "bg":
+    color = 4
+  else:
+    color = 3
+
+  randomize()
+  enableTrueColors()
+  if isTrueColorSupported():
+    var (r, g, b) = (rand(256), rand(256), rand(256))
+
+    result = "\e[" & $color & "8;2;" & $r & ";" & $g & ";" & $b & "m"
+  else:
+    result = "\e[" & $color & $rand(7) & "m"
+
+proc echoRandColor*(text: string) = stdout.writeLine(randColorSeq(), text, "\e[m")
+
 ## TUI
-proc rawMode*(vmin: int = 2, vtime: int = 0, time: cint = TCSANOW) =
+proc rawMode*(vmin: int = 1, vtime: int = 0, time: cint = TCSANOW) =
   discard tcGetAttr(0, addr termAttrs)
   ogTermAttrs = termAttrs
   
@@ -38,57 +82,46 @@ proc echoOn*() =
   
   discard tcSetAttr(0, TCSANOW, addr termAttrs)
 
-proc readIn*(vmin: int = 1): string =
-  rawMode(vmin)
+proc readC*(): char =
+  rawMode()
   
-  var buf: string
+  let c =  readChar(stdin)
   
-  while vmin > buf.len:
-    let c = readChar(stdin)
-    if c != '\0':
-      buf.add(c)
-    else:
-      break
-
   cookedMode()
+
+  return c
+
+proc readIn*(count: int): string =
+  var buf: string
+
+  while count > buf.len:
+    buf.add(readC())
 
   return buf
 
-## ANSI
-proc enableMouse*() = stdout.write("\e[?1000h")
+proc readKey*(mouse: bool = false): string =
+  var
+    buf, s: string
+    c: char
 
-proc disableMouse*() = stdout.write("\e[?1000l")
+  if mouse:
+      enableMouse()
 
-proc setTitle*(title: string) = stdout.write("\e]0;" & title & "\x07")
+  c = readC()
+  buf.add(c)
 
-proc altBuffer*() = stdout.write("\e[?1049h")
+  if c == '\e':
+    s = readIn(2)
+    buf.add(s)
 
-proc mainBuffer*() = stdout.write("\e[?1049l")
+    if buf == "\e[M":
+      s = readIn(3)
+      buf.add(s)
 
-proc saveScreen*() = stdout.write("\e[?47h")
+      disableMouse()
 
-proc restoreScreen*() = stdout.write("\e[?47l")
-
-proc lineBreak*() = stdout.write("\e[?25l")
-
-proc lineWrap*() = stdout.write("\e[?25h")
-
-proc scrollUp*(rows: int = 1) = stdout.write("\e[", rows, "S")
-
-proc scrollDown*(rows: int = 1) = stdout.write("\e[", rows, "T")
-
-proc sendBell*() = stdout.write("\a")
-
-proc randColorSeq*(colorType: ColorType = fg): string =
-  var ctype = $colorType
-
-  randomize()
-  enableTrueColors()
-  if isTrueColorSupported():
-    var (r, g, b) = (rand(256), rand(256), rand(256))
-
-    result = "\e[" & ctype & "8;2;" & $r & ";" & $g & ";" & $b & "m"
+      result = buf
+    else:
+      result = buf
   else:
-    result = "\e[" & ctype & $rand(7) & "m"
-
-proc echoRandColor*(text: string) = stdout.writeLine(randColorSeq(), text, "\e[m")
+    return
